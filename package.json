@@ -3,7 +3,7 @@
 	"version": "0.0.3",
 	"main": "dist/index.js",
 	"types": "dist/index.d.ts",
-	"description": "",
+	"description": "Plugin system for FalconFrame",
 	"repository": {
 		"type": "git",
 		"url": "https://github.com/wxn0brP/FalconFrame-plugin.git"
@@ -15,6 +15,10 @@
 	"scripts": {
 		"build": "tsc && tsc-alias"
 	},
+	"keywords": [
+		"falcon-frame",
+		"plugin"
+	],
 	"devDependencies": {
 		"@types/bun": "*",
 		"@wxn0brp/falcon-frame": "^0.7.0",
