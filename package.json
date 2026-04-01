@@ -21,12 +21,12 @@
     ],
     "devDependencies": {
         "@types/bun": "*",
-        "@wxn0brp/falcon-frame": "^0.7.0",
-        "tsc-alias": "*",
-        "typescript": "^5"
+        "@wxn0brp/falcon-frame": "^0.8.1",
+        "tsc-alias": "^1",
+        "typescript": "^6"
     },
     "peerDependencies": {
-        "@wxn0brp/falcon-frame": ">=0.7.0"
+        "@wxn0brp/falcon-frame": "^0.8.1"
     },
     "files": [
         "dist"
