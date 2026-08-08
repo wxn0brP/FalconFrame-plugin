@@ -21,6 +21,7 @@
     ],
     "devDependencies": {
         "@types/bun": "*",
+        "@wxn0brp/biome": "*",
         "@wxn0brp/falcon-frame": "^0.8.1",
         "tsc-alias": "^1",
         "typescript": "^6"
