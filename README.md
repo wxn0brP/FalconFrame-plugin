@@ -1,106 +1,128 @@
 # FalconFrame Plugin System
 
-A flexible plugin system for the **FalconFrame** framework, allowing developers to register, sort, and execute plugins in a specific order based on dependencies.
-
-## Overview
-
-The **FalconFrame Plugin System** provides a robust way to manage plugins for FalconFrame applications. It supports dependency management using `before` and `after` constraints, ensuring that plugins are executed in the correct order. The system uses a **topological sort** algorithm to handle complex dependency chains and detect circular dependencies.
+Plugin system for FalconFrame with dependency management and built-in middleware.
 
 ## Installation
 
 ```bash
-npm install @wxn0brp/falcon-frame-plugin
-# and FalconFrame if not already installed
-npm install @wxn0brp/falcon-frame 
+npm install @wxn0brp/falcon-frame-plugin @wxn0brp/falcon-frame
 ```
 
-## Features
-
-* **Plugin Registration** – Register plugins with optional dependency constraints.
-* **Dependency Management** – Specify `before` and `after` relationships between plugins.
-* **Automatic Sorting** – Plugins are automatically ordered based on dependencies.
-* **Circular Dependency Detection** – Throws errors when circular dependencies are detected.
-* **Route Handler Integration** – Seamless integration with FalconFrame's routing system.
-
-## Usage
-
-### Basic Example
+## Quick Start
 
 ```typescript
+import FalconFrame from "@wxn0brp/falcon-frame";
 import { PluginSystem } from "@wxn0brp/falcon-frame-plugin";
-import { FalconFrame } from "@wxn0brp/falcon-frame";
 
 const app = new FalconFrame();
-const pluginSystem = new PluginSystem();
+const plugins = new PluginSystem();
 
-// Register a plugin
-pluginSystem.register({
-  	id: "my-plugin",
-  	process: (req, res, next) => {
-  	  	console.log("Executing my plugin");
-  	  	next();
-  	}
+plugins.register({
+  id: "logger",
+  process: (req, res, next) => {
+    console.log(`${req.method} ${req.url}`);
+    next();
+  }
 });
 
-// Register multiple plugins
-app.use(pluginSystem);
-```
-
-### Plugin with Dependencies
-
-```typescript
-pluginSystem.register({
-  	id: "auth-plugin",
-  	process: (req, res, next) => {
-  	  	// Authentication logic
-  	  	next();
-  	},
-  	before: "data-plugin"  // Runs before "data-plugin"
-});
-
-pluginSystem.register({
-  id: "data-plugin",
-  	process: (req, res, next) => {
-  	  	// Data processing logic
-  	  	next();
-  	},
-  	after: "auth-plugin"   // Runs after "auth-plugin"
-});
-```
-
-## Plugin Interface
-
-```typescript
-interface Plugin {
-  	id: string;                 // Unique identifier for the plugin
-  	process: RouteHandler;      // Function executed when the plugin runs
-  	before?: string | string[]; // Plugin(s) that should run after this one
-  	after?: string | string[];  // Plugin(s) that should run before this one
-}
+app.use(plugins);
+app.get("/", () => "Hello World");
+app.listen(3000);
 ```
 
 ## API
 
-### `PluginSystem.register(plugin: Plugin, opts?: PSOpts)`
+### PluginSystem
 
-Registers a plugin with the system. If `opts.after` or `opts.before` are provided, they will define the execution order. Plugins are re-sorted automatically after registration.
+| Property/Method | Type | Description |
+|---|---|---|
+| `plugins` | `Plugin[]` | Registered plugins array |
+| `_sorted` | `boolean` | Sort state flag |
+| `register(plugin, opts?)` | `(Plugin, PSOpts?) => void` | Register plugin with optional ordering |
+| `getRouteHandler()` | `() => RouteHandler` | Returns middleware handler |
+| `_sort()` | `() => void` | Manually trigger re-sort |
 
-### `PluginSystem.getRouteHandler(): RouteHandler`
+## Types
 
-Returns a **RouteHandler** that executes all registered plugins in the correct order. It will sort the plugins if they haven’t been sorted yet, then execute them recursively.
+```typescript
+interface Plugin {
+  id: string;                 // Unique identifier
+  process: RouteHandler;      // (req, res, next) => void
+  before?: string | string[]; // Run before these plugins
+  after?: string | string[];  // Run after these plugins
+}
 
-## Sorting Algorithm
+interface PSOpts {
+  before?: string | string[]; // Override plugin.before
+  after?: string | string[];  // Override plugin.after
+}
+```
 
-The system uses a **topological sort** to:
+## Built-in Plugins
 
-* Detect circular dependencies and throw errors
-* Ensure correct execution order based on dependencies
-* Prevent duplicate plugin IDs
+### IP Filter
 
-## Contributing
+```typescript
+import { createIPFilterPlugin } from "@wxn0brp/falcon-frame-plugin/plugins/ipFilter";
 
-Contributions are welcome! Please open an issue or pull request for bug reports, feature requests, or improvements.
+plugins.register(createIPFilterPlugin({
+  allow: ["127.0.0.1", "::1", "10.0.0.0/8"],
+  block: ["192.168.1.100"],
+  statusCode: 403,
+  message: "Forbidden"
+}));
+```
+
+| Option | Type | Description |
+|---|---|---|
+| `allow` | `string \| string[]` | IPs/CIDRs to allow |
+| `block` | `string \| string[]` | IPs/CIDRs to block |
+| `statusCode` | `number` | Default: `403` |
+| `message` | `string` | Default: `"Forbidden"` |
+| `onBlocked` | `(req, res) => void` | Custom blocked handler |
+
+Supports IPv4, IPv6, and CIDR notation. Allow-list takes priority.
+
+### Rate Limiter
+
+```typescript
+import { createRateLimiterPlugin } from "@wxn0brp/falcon-frame-plugin/plugins/rateLimit";
+
+plugins.register(createRateLimiterPlugin({
+  maxRequests: 100,
+  windowMs: 15 * 60 * 1000,
+  id: (req) => req.headers["x-api-key"] || req.socket.remoteAddress
+}));
+```
+
+| Option | Type | Description |
+|---|---|---|
+| `maxRequests` | `number` | Max requests per window |
+| `windowMs` | `number` | Window duration in ms |
+| `id` | `(req) => string \| Promise<string>` | Custom key generator |
+| `onLimitReached` | `(req, res, ctx) => void` | Custom limit handler |
+| `sharedMap` | `Map<string, RateLimitRecord>` | Shared state between limiters |
+| `disableCleanup` | `boolean` | Disable auto-cleanup (default: `false`) |
+
+Default response: `429 Too Many Requests` with `Retry-After` header.
+
+### Security Headers
+
+```typescript
+import { createSecurityPlugin } from "@wxn0brp/falcon-frame-plugin/plugins/security";
+
+plugins.register(createSecurityPlugin());
+```
+
+Sets the following headers:
+- `X-Content-Type-Options: nosniff`
+- `X-Frame-Options: SAMEORIGIN`
+- `Referrer-Policy: no-referrer`
+- `X-XSS-Protection: 1; mode=block`
+- `Strict-Transport-Security: max-age=31536000; includeSubDomains`
+
+Implicit ordering: `after: "cors"`.
 
 ## License
 
-MIT License – see the [LICENSE](LICENSE) file for details.
+MIT
