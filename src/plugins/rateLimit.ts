@@ -105,12 +105,7 @@ export function createRateLimiterPlugin(opts: RateLimiterOptions): Plugin {
 	return {
 		id: "rateLimiter",
 		process: async (req, res, next) => {
-			let id: string;
-			if (opts.id) {
-				id = await opts.id(req);
-			} else {
-				id = req.socket.remoteAddress ?? "unknown";
-			}
+			const id = opts.id ? await opts.id(req) : (req.ip ?? "unknown");
 
 			const now = Date.now();
 			const record = rateLimitMap.get(id);

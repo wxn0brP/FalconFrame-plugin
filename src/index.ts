@@ -21,10 +21,7 @@ export class PluginSystem {
 		if (this._sorted) this._sort();
 	}
 
-	/**
-	 * Sorts the plugins using the sortPlugins function and marks them as sorted
-	 */
-	public _sort() {
+	_sort() {
 		this.plugins = sortPlugins(this.plugins);
 		this._sorted = true;
 	}
@@ -55,7 +52,7 @@ export class PluginSystem {
 		res: FFResponse,
 		next: () => void,
 		index: number,
-	): void {
+	) {
 		if (index >= this.plugins.length) return next();
 
 		this.plugins[index].process(req, res, () => {

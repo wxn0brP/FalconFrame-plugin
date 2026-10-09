@@ -1,3 +1,4 @@
+import { FinalHandler } from "@wxn0brp/falcon-frame";
 import { Plugin } from "../types";
 
 export interface IPFilterOptions {
@@ -5,10 +6,10 @@ export interface IPFilterOptions {
 	block?: string | string[];
 	statusCode?: number;
 	message?: string;
-	onBlocked?: (req: any, res: any) => void;
+	onBlocked?: FinalHandler;
 }
 
-function parseIPv4(ip: string): bigint | null {
+function parseIPv4(ip: string) {
 	const parts = ip.split(".");
 	if (parts.length !== 4) return null;
 	let result = 0n;
@@ -22,7 +23,7 @@ function parseIPv4(ip: string): bigint | null {
 	return result;
 }
 
-function parseIPv6(ip: string): bigint | null {
+function parseIPv6(ip: string) {
 	let ipStr = ip;
 	if (ipStr.startsWith("[")) ipStr = ipStr.slice(1, -1);
 	const parts = ipStr.split(":");
@@ -48,12 +49,12 @@ function parseIPv6(ip: string): bigint | null {
 	return result;
 }
 
-function parseIP(ip: string): bigint | null {
+function parseIP(ip: string) {
 	if (ip.includes(":")) return parseIPv6(ip);
 	return parseIPv4(ip);
 }
 
-function ipMatchesCidr(ip: string, cidr: string): boolean {
+function ipMatchesCidr(ip: string, cidr: string) {
 	const [network, prefixStr] = cidr.split("/");
 	const ipBigInt = parseIP(ip);
 	const networkBigInt = parseIP(network);
@@ -73,7 +74,7 @@ function ipMatchesCidr(ip: string, cidr: string): boolean {
 	return (ipBigInt & mask) === (networkBigInt & mask);
 }
 
-function ipMatchesList(ip: string, list: string[]): boolean {
+function ipMatchesList(ip: string, list: string[]) {
 	for (const entry of list) {
 		if (entry.includes("/")) {
 			if (ipMatchesCidr(ip, entry)) return true;
@@ -82,16 +83,6 @@ function ipMatchesList(ip: string, list: string[]): boolean {
 		}
 	}
 	return false;
-}
-
-function getRequestIP(req: any): string {
-	const forwarded = req.headers["x-forwarded-for"];
-	if (forwarded) {
-		return (typeof forwarded === "string" ? forwarded : forwarded[0])
-			.split(",")[0]
-			.trim();
-	}
-	return req.socket?.remoteAddress || "";
 }
 
 export function createIPFilterPlugin(opts: IPFilterOptions): Plugin {
@@ -116,10 +107,8 @@ export function createIPFilterPlugin(opts: IPFilterOptions): Plugin {
 	return {
 		id: "ipFilter",
 		process: (req, res, next) => {
-			const ip = getRequestIP(req);
-			if (allowList.length > 0 && ipMatchesList(ip, allowList)) {
-				return next();
-			}
+			const ip = req.ip;
+			if (allowList.length > 0 && ipMatchesList(ip, allowList)) return next();
 
 			if (blockList.length > 0 && ipMatchesList(ip, blockList)) {
 				if (onBlocked) return onBlocked(req, res);
